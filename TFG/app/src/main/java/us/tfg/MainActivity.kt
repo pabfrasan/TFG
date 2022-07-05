@@ -15,6 +15,8 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import us.tfg.ui.main.SignalClass
+import java.io.DataOutputStream
+import java.io.IOException
 import java.lang.reflect.Method
 import java.util.*
 
@@ -25,8 +27,10 @@ class MainActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
     override fun onCreate(savedInstanceState: Bundle?) {
         val root = Runtime.getRuntime().exec("su")
-    setDataEnabled(false)
-        //encenderModoAvion()
+        setConnection(true)
+            //setDataEnabled(false)
+
+        // encenderModoAvion()
     //apagarModoAvion()
     //setMobileDataState(false)
         //Settings.Global.putString(contentResolver, Settings.Global.DATA_ROAMING, "0");
@@ -59,7 +63,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-
+    //Metodo que actualiza los datos de la conexión movil
     @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
     private fun updateSignal(){
         val telephonyManager: TelephonyManager = this.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
@@ -70,6 +74,7 @@ class MainActivity : AppCompatActivity() {
         calidad.text =SignalUtils.asignarCobertura(signal, getNetworkClass(this)).toString()
     }
 
+    //Método para encender el modo avion
     @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
     private fun encenderModoAvion(){
         if(Settings.System.getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 0){
@@ -80,6 +85,7 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    //Método para apagar el modo avion
     @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
     private fun apagarModoAvion(){
         if(Settings.System.getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 0){
@@ -91,6 +97,7 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    //Método que nos devuelve que tipo de señal esta conectado
     fun getNetworkClass(context: Context): SignalClass? {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val info = cm.activeNetworkInfo
@@ -108,25 +115,29 @@ class MainActivity : AppCompatActivity() {
         }
         return SignalClass.UNKNOWN
     }
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun setDataEnabled(enable: Boolean) {
-        enforceModifyPermission()
-        val telephonyManager:TelephonyManager = this.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        telephonyManager.isDataEnabled = enable
-    }
-    private fun enforceModifyPermission() {
 
-        super.enforceCallingOrSelfPermission(Manifest.permission.MODIFY_PHONE_STATE, "No se tiene permisos root")
-    }
+    private val COMMAND_L_ON = "svc data enable\n "
+    private val COMMAND_L_OFF = "svc data disable\n "
+    private val COMMAND_SU = "su"
 
-    fun setMobileDataState(mobileDataEnabled: Boolean) {
+    //Método que usando los comandos de root, activa o desactiva los datos moviles
+    fun setConnection(enable: Boolean) {
+        val command: String = if (enable) COMMAND_L_ON else COMMAND_L_OFF
         try {
-            val telephonyService = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-            val setMobileDataEnabledMethod: Method = Objects.requireNonNull(telephonyService).javaClass.getDeclaredMethod("setDataEnabled", Boolean::class.javaPrimitiveType)
-            setMobileDataEnabledMethod.invoke(telephonyService, mobileDataEnabled)
-        } catch (ex: Exception) {
-            Log.e("MainActivity", "Error setting mobile data state", ex)
+            val su = Runtime.getRuntime().exec(COMMAND_SU)
+            val outputStream = DataOutputStream(su.outputStream)
+            outputStream.writeBytes(command)
+            outputStream.flush()
+            outputStream.writeBytes("exit\n")
+            outputStream.flush()
+            try {
+                su.waitFor()
+            } catch (e: InterruptedException) {
+                e.printStackTrace()
+            }
+            outputStream.close()
+        } catch (e: IOException) {
+            e.printStackTrace()
         }
     }
-
 }
