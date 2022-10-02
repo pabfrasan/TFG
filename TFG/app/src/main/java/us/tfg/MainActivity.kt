@@ -4,12 +4,12 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Location
 import android.location.LocationManager
 import android.net.ConnectivityManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.system.ErrnoException
 import android.telephony.TelephonyManager
 import android.view.View
 import android.widget.TextView
@@ -23,16 +23,22 @@ import us.tfg.ui.main.SignalClass
 import java.io.DataOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
-import java.net.Socket
 import java.net.URL
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.*
 
 
 class MainActivity : AppCompatActivity(){
-    private var ipAddress: String = "192.168.1.111"
+    private var ipAddress: String = "tfg-rest.herokuapp.com"
+
     private var port: Int = 9090
+
+    //Variable que mide cada cuantos segundos se actualiza los datos de la señal
+    private var periodoActualizacion:Long = 10
+
+    //Variable que mide la cantidad de veces que la apliación puede detectar mala
+    // señal sin activar la rutinas de recuperación
+    private var fallosPermitidos:Int = 3
 
 
 
@@ -40,33 +46,48 @@ class MainActivity : AppCompatActivity(){
     override fun onCreate(savedInstanceState: Bundle?) {
         val root = Runtime.getRuntime().exec("su")
         setConnection(true)
-            //setDataEnabled(false)
-
-        // encenderModoAvion()
-    //apagarModoAvion()
-    //setMobileDataState(false)
-
-
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        println(getNetworkClass(this))
+        //Variable que indica que tipo de señal recibe el telefono (2G,3G,4G,WIFI,SIN SEÑAL)
+        var senal:SignalClass?= getNetworkClass(this)
+        var contador:Int = 0
+        var t =this
         val timer = Timer()
         timer?.scheduleAtFixedRate(object : TimerTask() {
             override fun run() {
                 //ANALISIS DE COBERTURA
-               val dbm = updateSignal()
+                val dbm = updateSignal()
+                senal= getNetworkClass(t)
+                if(SignalClass.SIGNAL_2G.equals(senal)||SignalClass.SIGNAL_3G.equals(senal)||SignalClass.SIGNAL_4G.equals(senal)||SignalClass.SIGNAL_5G.equals(senal)){
                 if(Signal.DEAD_ZONE.equals(dbm)){
-                    println("conexion de mierda")
+                    if(contador>=3){
+                    //En caso de recibir una mala señal lanza los metodos de autorecuperación de la cobertura
+
+                    //APN
+
+                    //ROAMING
+                    Settings.System.putInt(contentResolver, Settings.System.DATA_ROAMING, 0 );
+                    Settings.System.putInt(contentResolver, Settings.System.DATA_ROAMING, 1 );
+
+                    //DATOS MOVILES
+                    setConnection(false)
+                    setConnection(true)
+                    //Antes de seguir comprueba si ya se ha arreglado el problema de cobertura
+                    //Si sigue dando una mala cobertura apaga/enciende el modo avión
+                    if(Signal.DEAD_ZONE.equals(updateSignal())) {
+                        encenderModoAvion()
+                        apagarModoAvion()
+                    }else{
+                        contador++
+                    }
+                    }
+                }else{
+                    contador=0
                 }
+}
 
-            }
-        }, 0, 1000)
+        }}, 0, 1000*periodoActualizacion)
 
-
-
-       // Settings.System.putInt(contentResolver, Settings.System.  MOBILE_DATA, 1 );
-        //Settings.System.putInt(contentResolver, Settings.System.DATA_ROAMING, 1 );
-       // Settings.System.putInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0 );
     }
 
 
@@ -130,10 +151,18 @@ class MainActivity : AppCompatActivity(){
         if ((ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)) {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 2)
             }
-       // locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,5000,5f,this, Looper.getMainLooper() )
-        var loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-        var latitude: Double = loc?.latitude ?: 0.0
-        var longitude: Double = loc?.longitude ?: 0.0
+        //var loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+        val providers: List<String> = locationManager.getProviders(true)
+        var bestLocation: Location? = null
+        for (provider in providers) {
+            val l: Location = locationManager.getLastKnownLocation(provider) ?: continue
+            if (bestLocation == null || l.accuracy < bestLocation.accuracy) {
+                // Found best last known location: %s", l);
+                bestLocation = l
+            }
+        }
+        var latitude: Double = bestLocation?.latitude ?: 0.0
+        var longitude: Double = bestLocation?.longitude ?: 0.0
         return "$latitude,$longitude"
 
     }
@@ -205,7 +234,7 @@ class MainActivity : AppCompatActivity(){
         }
     }
     fun sendMessage(message:String){
-        val url = URL("http://$ipAddress:$port/cobertura/$message")
+        val url = URL("https://$ipAddress/save/$message")
 
         with(url.openConnection() as HttpURLConnection) {
             requestMethod = "GET"  // optional default is GET

@@ -49,7 +49,7 @@ Método que obtiene la fuerza de la cobertura en dbm
             }else{
                 return Signal.DEAD_ZONE
             }
-        }else if(signal == SignalClass.SIGNAL_3G){
+        }else if(signal == SignalClass.SIGNAL_3G || signal == SignalClass.SIGNAL_2G){
             if (dbm != null) {
                 if (dbm>=-70){
                     return Signal.EXCELLENT
