@@ -29,13 +29,7 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="@dimen/fab_margin"
-        app:srcCompat="@android:drawable/ic_dialog_email" />
+
 
     <LinearLayout
         android:id="@+id/linearLayout2"
@@ -43,11 +37,19 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <TextView
+            android:id="@+id/aviso"
+            android:layout_width="376dp"
+            android:layout_height="546dp"
+            android:gravity="center"
+            android:text="@string/aviso"
+            android:visibility="visible"
+            tools:visibility="visible" />
     </LinearLayout>
 
     <TextView
         android:id="@+id/calidad"
-        android:layout_width="167dp"
+        android:layout_width="461dp"
         android:layout_height="60dp"
         android:gravity="center"
         android:text="@string/calidad"
@@ -58,7 +60,7 @@
 
     <TextView
         android:id="@+id/dbm"
-        android:layout_width="156dp"
+        android:layout_width="317dp"
         android:layout_height="56dp"
         android:gravity="center"
         android:text="@string/dbm"

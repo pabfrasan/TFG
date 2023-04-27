@@ -1,7 +1,9 @@
 <resources>
-    <string name="app_name">TFG</string>
+    <string name="app_name">Healthy signal</string>
     <string name="tab_text_1">Tab 1</string>
     <string name="tab_text_2">Tab 2</string>
-    <string name="dbm">dbm</string>
-    <string name="calidad">calidad</string>
+    <string name="dbm"></string>
+    <string name="calidad"></string>
+    <string name="aviso"></string>
+
 </resources>

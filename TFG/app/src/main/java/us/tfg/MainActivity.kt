@@ -13,7 +13,6 @@ import android.provider.Settings
 import android.telephony.TelephonyManager
 import android.view.View
 import android.widget.TextView
-import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -44,8 +43,14 @@ class MainActivity : AppCompatActivity(){
 
     @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
     override fun onCreate(savedInstanceState: Bundle?) {
-        val root = Runtime.getRuntime().exec("su")
-        setConnection(true)
+
+        //Se compueba si el usuario es root o no
+        var root=true
+        try {
+            Runtime.getRuntime().exec("su")
+        }catch (e: java.lang.Exception ){
+            root =false
+        }
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         //Variable que indica que tipo de señal recibe el telefono (2G,3G,4G,WIFI,SIN SEÑAL)
@@ -56,35 +61,70 @@ class MainActivity : AppCompatActivity(){
         timer?.scheduleAtFixedRate(object : TimerTask() {
             override fun run() {
                 //ANALISIS DE COBERTURA
-                val dbm = updateSignal()
                 senal= getNetworkClass(t)
+
                 if(SignalClass.SIGNAL_2G.equals(senal)||SignalClass.SIGNAL_3G.equals(senal)||SignalClass.SIGNAL_4G.equals(senal)||SignalClass.SIGNAL_5G.equals(senal)){
-                if(Signal.DEAD_ZONE.equals(dbm)){
-                    if(contador>=3){
-                    //En caso de recibir una mala señal lanza los metodos de autorecuperación de la cobertura
+                    val dbm = updateSignal()
+                    if(root){
+                    if(Signal.DEAD_ZONE.equals(dbm)||Signal.VERY_POOR.equals(dbm)){
+                        println("Baja calidad de conexión. Se lanzaran las rutinas si persiste "+(fallosPermitidos-contador)+" intentos más")
+                        if(contador>=fallosPermitidos){
+                            println("Se ejecuta las rutinas de recuperacion")
+                            //En caso de recibir una mala señal lanza los metodos de autorecuperación de la cobertura
 
-                    //APN
+                            //APN
+                            println("Comprobación del APN")
 
-                    //ROAMING
-                    Settings.System.putInt(contentResolver, Settings.System.DATA_ROAMING, 0 );
-                    Settings.System.putInt(contentResolver, Settings.System.DATA_ROAMING, 1 );
+                            //ROAMING
+                            println("Se desactiva el Roaming")
+                            Settings.System.putInt(contentResolver, Settings.System.DATA_ROAMING, 0 );
+                            Settings.System.putInt(contentResolver, Settings.System.DATA_ROAMING, 1 );
+                            println("Se activa el Roaming")
 
-                    //DATOS MOVILES
-                    setConnection(false)
-                    setConnection(true)
-                    //Antes de seguir comprueba si ya se ha arreglado el problema de cobertura
-                    //Si sigue dando una mala cobertura apaga/enciende el modo avión
-                    if(Signal.DEAD_ZONE.equals(updateSignal())) {
-                        encenderModoAvion()
-                        apagarModoAvion()
+
+                            //DATOS MOVILES
+                            println("Se desactiva los datos moviles")
+                            setConnection(false)
+                            println("Se activan los datos moviles")
+                            setConnection(true)
+                            //Antes de seguir comprueba si ya se ha arreglado el problema de cobertura
+                            //Si sigue dando una mala cobertura apaga/enciende el modo avión
+                            if(Signal.DEAD_ZONE.equals(updateSignal())) {
+                                println("Se activa el modo avion")
+                                encenderModoAvion()
+                                println("Se desactiva el modo avion")
+                                apagarModoAvion()
+                            }else{
+                                contador++
+                            }
+                        }else{
+                            contador++
+                        }
+
+
+                     }else{
+
+                            println("Buena  calidad de conexión.")
+                            contador=0
+                      }
                     }else{
-                        contador++
+                        println("El dispositivo no esta rooteado, por lo tanto no se ejecutaran las rutinas de recuperacion de la cobertura.")
+                        val aviso = findViewById<View>(R.id.aviso) as TextView
+                        aviso.text = "No se tienen permisos de superusuario, por lo tanto no se ejecutaran las rutinas de recuperacion de la cobertura."
+                        contador=0
                     }
-                    }
-                }else{
-                    contador=0
+                }else if (SignalClass.WIFI.equals(senal)){
+                    val aviso = findViewById<View>(R.id.aviso) as TextView
+                    aviso.text = " Conectado a traves de WIFI"
+
+                    val dbm = findViewById<View>(R.id.dbm) as TextView
+                    dbm.text = ""
+
+                    val calidad = findViewById<View>(R.id.calidad) as TextView
+                    calidad.text = ""
+
+
                 }
-}
 
         }}, 0, 1000*periodoActualizacion)
 
@@ -173,7 +213,6 @@ class MainActivity : AppCompatActivity(){
     private fun encenderModoAvion(){
         if(Settings.System.getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 0){
             Settings.Global.putString(contentResolver, "airplane_mode_on", "1");
-            Toast.makeText(applicationContext,"Modo avión desactivado",Toast.LENGTH_SHORT).show()
         }
 
     }
@@ -182,10 +221,8 @@ class MainActivity : AppCompatActivity(){
     @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
     private fun apagarModoAvion(){
         if(Settings.System.getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 0){
-            Toast.makeText(applicationContext,"Off",Toast.LENGTH_SHORT).show()
         } else {
             Settings.Global.putString(contentResolver, "airplane_mode_on", "0");
-            Toast.makeText(applicationContext,"Modo avión desactivado",Toast.LENGTH_SHORT).show()
         }
 
     }
