@@ -1,2 +1,2 @@
-include ':app'
+include ':healthySignal'
 rootProject.name = "TFG"
